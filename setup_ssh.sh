@@ -1,2 +1,2 @@
 eval "$(ssh-agent -s)"
-eval "$(ssh-add ~/.ssh/rpi)"
+ssh-add ~/.ssh/github
