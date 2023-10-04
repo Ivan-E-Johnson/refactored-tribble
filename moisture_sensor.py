@@ -25,6 +25,12 @@ def read_analog_value(mcp):
     # Read the analog input from the MCP3008
     return mcp.read_adc(0)
 
+def get_moisture(mcp):
+    analog_val = read_analog_value(mcp)
+    moisture = map_to_moisture(analog_val)
+    return moisture
+
+
 def main():
     # MCP3008 setup
     CLK = 18

@@ -1,51 +1,57 @@
-import Adafruit_DHT
-import time
 import sqlite3
 import paho.mqtt.client as mqtt
+import time
+from sensor_manager import SensorManager
 
-# DHT22 sensor setup
-DHT_SENSOR = Adafruit_DHT.DHT22
-DHT_PIN = 17  # Change this to match your GPIO pin
-
-# MQTT settings
-MQTT_BROKER = "localhost"  # Change to the IP or hostname of your MQTT broker
+# Configuration
+MQTT_BROKER = "localhost"
 MQTT_TOPIC = "sensor/dht22"
+DATABASE_FILE = 'sensors.db'
 
-# Function to insert data into the database
-def insert_data(temperature, humidity):
+def insert_data(conn, cursor, temperature, humidity, moisture):
     try:
-        conn = sqlite3.connect('temperature.db')
-        cursor = conn.cursor()
-        cursor.execute("INSERT INTO temperature (temp_c, humidity) VALUES (?, ?)", (temperature, humidity))
+        cursor.execute("INSERT INTO sensors (temp_c, humidity, moisture) VALUES (?, ?, ?)", (temperature, humidity, moisture))
         conn.commit()
-        conn.close()
     except Exception as e:
         print(f"Error inserting data into the database: {str(e)}")
 
-# Function to publish data to MQTT
-def publish_mqtt_data(temperature, humidity):
-    client = mqtt.Client()
-    client.connect(MQTT_BROKER, 1883, 60)
-    message = f"Temperature: {temperature:.2f}°C, Humidity: {humidity:.2f}%"
-    client.publish(MQTT_TOPIC, message)
-    client.disconnect()
+def publish_mqtt_data(broker, topic, temperature, humidity, moisture):
+    try:
+        client = mqtt.Client()
+        client.connect(broker, 1883, 60)
+        message = f"Temperature: {temperature:.2f}°C, Humidity: {humidity:.2f}%, Moisture: {moisture:.2f}%"
+        client.publish(topic, message)
+        client.disconnect()
+    except Exception as e:
+        print(f"Error publishing data to MQTT: {str(e)}")
 
-try:
-    while True:
-        humidity, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, DHT_PIN)
-        if humidity is not None and temperature is not None:
-            print(f"Temperature: {temperature:.2f}°C, Humidity: {humidity:.2f}%")
-            
-            # Insert data into the database
-            insert_data(temperature, humidity)
-            
-            # Publish data to MQTT
-            publish_mqtt_data(temperature, humidity)
-            
-        else:
-            print("Failed to retrieve data from DHT sensor")
-        time.sleep(2)  # Read data every 2 seconds
+def main():
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
+        sensor_manager = SensorManager()
 
-except KeyboardInterrupt:
-    pass
+        while True:
+            latest_data = sensor_manager.get_latest_data()
+            if latest_data:
+                temperature = latest_data['temperature']
+                humidity = latest_data['humidity']
+                moisture = latest_data['moisture']
+
+                print(f"Temperature: {temperature:.2f}°C, Humidity: {humidity:.2f}%, Moisture: {moisture:.2f}%")
+
+                insert_data(conn, cursor, temperature, humidity, moisture)
+                publish_mqtt_data(MQTT_BROKER, MQTT_TOPIC, temperature, humidity, moisture)
+            else:
+                print("Failed to retrieve data from sensors")
+
+            time.sleep(2)  # Read data every 2 seconds
+
+    except KeyboardInterrupt:
+        pass
+    finally:
+        conn.close()
+
+if __name__ == "__main__":
+    main()
 
