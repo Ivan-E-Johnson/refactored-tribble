@@ -5,49 +5,33 @@ from Sensor_manager import SensorManager
 
 # Configuration
 MQTT_BROKER = "localhost"
-MQTT_TOPIC_DHT22 = "sensor/dht22"
-MQTT_TOPIC_PROBE = "sensor/temperature_probe"
 MQTT_TOPIC_ALL = "sensors/data"
 DATABASE_FILE = 'sensors.db'
 
 def insert_data(conn, cursor, temperature, humidity, moisture, probe_temperature):
     try:
-        cursor.execute("INSERT INTO sensors (temp_c, humidity, moisture, probe_temperature) VALUES (?, ?, ?, ?)",
+        cursor.execute("INSERT INTO sensors (temp_c, humidity, moisture, probe_t) VALUES (?, ?, ?, ?)",
                        (temperature, humidity, moisture, probe_temperature))
         conn.commit()
     except Exception as e:
         print(f"Error inserting data into the database: {str(e)}")
 
-def publish_individual_sensor_data(broker, dht22_topic, probe_topic, temperature, humidity, moisture, probe_temperature):
+def publish_data(broker, topic, temperature, humidity, moisture, probe_temperature):
     try:
         client = mqtt.Client()
         client.connect(broker, 1883, 60)
         
-        # Publish DHT22 data to its topic
-        dht22_message = f"Temperature: {temperature:.2f}°C, Humidity: {humidity:.2f}%, Moisture: {moisture:.2f}%"
-        client.publish(dht22_topic, dht22_message)
-        
-        # Publish Temperature Probe data to its topic
-        probe_message = f"Probe Temperature: {probe_temperature:.2f}°C"
-        client.publish(probe_topic, probe_message)
-        
-        client.disconnect()
-    except Exception as e:
-        print(f"Error publishing individual sensor data to MQTT: {str(e)}")
-
-def publish_all_sensor_data(broker, all_topic, temperature, humidity, moisture, probe_temperature):
-    try:
-        client = mqtt.Client()
-        client.connect(broker, 1883, 60)
-        
-        # Publish all sensor data as a tuple to the "sensors/data" topic
+        # Publish all sensor data as a tuple to the specified topic
         all_data = (temperature, humidity, moisture, probe_temperature)
-        all_message = f"Sensor Data: {all_data}"
-        client.publish(all_topic, all_message)
+        client.publish(topic, f"{all_data}")
         
+        # Publish human-readable data
+        human_readable_message = f"Temperature: {temperature:.2f}°C, Humidity: {humidity:.2f}%, Moisture: {moisture:.2f}%, Probe Temperature: {probe_temperature:.2f}°C"
+        client.publish(topic + "/human_readable", human_readable_message)
+        #print(topic + "/human_readable)")  
         client.disconnect()
     except Exception as e:
-        print(f"Error publishing all sensor data to MQTT: {str(e)}")
+        print(f"Error publishing sensor data to MQTT: {str(e)}")
 
 def main():
     try:
@@ -67,11 +51,8 @@ def main():
 
                 insert_data(conn, cursor, temperature, humidity, moisture, probe_temperature)
                 
-                # Publish individual sensor data
-                publish_individual_sensor_data(MQTT_BROKER, MQTT_TOPIC_DHT22, MQTT_TOPIC_PROBE, temperature, humidity, moisture, probe_temperature)
-                
-                # Publish all sensor data as a tuple
-                publish_all_sensor_data(MQTT_BROKER, MQTT_TOPIC_ALL, temperature, humidity, moisture, probe_temperature)
+                # Publish data
+                publish_data(MQTT_BROKER, MQTT_TOPIC_ALL, temperature, humidity, moisture, probe_temperature)
             else:
                 print("Failed to retrieve data from sensors")
 

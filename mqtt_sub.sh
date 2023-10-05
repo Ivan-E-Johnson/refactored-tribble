@@ -2,8 +2,7 @@
 
 # MQTT broker settings
 MQTT_BROKER="localhost"  # Change to the IP or hostname of your MQTT broker
-MQTT_TOPIC="sensor/dht22"  # Change to the desired MQTT topic
+MQTT_TOPIC="sensors/data/human_readable"
 
-# Subscribe to the MQTT topic
 mosquitto_sub -h "$MQTT_BROKER" -t "$MQTT_TOPIC" -v
 
