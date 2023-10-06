@@ -1,5 +1,5 @@
 import sqlite3
-import paho.mqtt.client as mqtt
+import paho.mqtt.client as paho
 import time
 from Sensor_manager import SensorManager
 
@@ -18,7 +18,7 @@ def insert_data(conn, cursor, temperature, humidity, moisture, probe_temperature
 
 def publish_data(broker, topic, temperature, humidity, moisture, probe_temperature):
     try:
-        client = mqtt.Client()
+        client =paho.Client()
         client.connect(broker, 1883, 60)
         
         # Publish all sensor data as a tuple to the specified topic
